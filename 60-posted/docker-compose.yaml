@@ -1,0 +1,29 @@
+# 로컬 검증용 Grafana.
+#
+# 홈랩과 같은 버전(12.0.1)으로 띄워서, 생성된 대시보드 JSON / Terraform 이 실제로 적용되는지 확인합니다.
+# 홈랩 Prometheus 를 port-forward 해두면 실제 데이터로 화면까지 확인할 수 있습니다.
+#
+#   kubectl -n monitoring port-forward svc/<prometheus-svc> 9090:9090
+#   make up
+services:
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-12.0.1}
+    container_name: sdk-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+      # Prometheus 주소. 기본값은 호스트에서 port-forward 한 9090 포트입니다.
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://host.docker.internal:9090}
+    volumes:
+      - ./local/provisioning:/etc/grafana/provisioning:ro
+    extra_hosts:
+      # Linux 에서도 host.docker.internal 로 호스트에 접근할 수 있게 합니다.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

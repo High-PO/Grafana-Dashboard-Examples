@@ -1,0 +1,9 @@
+# 홈랩용 변수 예시. 복사해서 사용하세요:
+#   cp envs/homelab.tfvars.example envs/homelab.tfvars
+#
+# grafana_auth 는 파일에 적지 말고 환경변수로 넘기세요:
+#   export TF_VAR_grafana_auth="glsa_xxxxxxxx"   # 서비스 어카운트 토큰 (Editor 이상)
+grafana_url = "https://grafana.example.homelab"
+
+# folder_uid   = "foundation-sdk"
+# folder_title = "Foundation SDK"
