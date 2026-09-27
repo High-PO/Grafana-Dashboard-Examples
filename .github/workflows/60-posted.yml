@@ -1,0 +1,115 @@
+name: 60-posted (Foundation SDK + Terraform)
+
+on:
+  pull_request:
+    paths:
+      - "60-posted/**"
+      - "59-posted/FinOps*"
+      - ".github/workflows/60-posted.yml"
+  push:
+    branches: [main]
+    paths:
+      - "60-posted/**"
+      - "59-posted/FinOps*"
+      - ".github/workflows/60-posted.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: 60-posted
+
+env:
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  # 1단계: Grafana 없이 할 수 있는 검증
+  static:
+    name: 정적 검증 (lint / test / dist 최신 여부 / 원본 비교)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 60-posted/foundation-sdk/go/go.mod
+          cache-dependency-path: 60-posted/foundation-sdk/go/go.sum
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: lint (gofmt / go vet / terraform fmt)
+        run: make lint
+
+      - name: test (빌드 / 패널 ID / 레이아웃 / PromQL 문법)
+        run: make test
+
+      - name: dist/ 가 코드와 일치하는지
+        run: make check
+
+      - name: FinOps 마이그레이션 결과가 원본과 같은지
+        run: make compare
+
+      - name: 생성된 JSON 업로드 (리뷰용)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboards
+          path: 60-posted/dist/*.json
+
+  # 2단계: 홈랩과 같은 버전의 Grafana 를 띄워서 실제로 적용해보기
+  grafana:
+    name: Grafana ${{ matrix.grafana }} 에 적용 (API smoke + Terraform)
+    needs: static
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 홈랩 버전을 기준으로 두고, 업그레이드 전에 호환성을 미리 보고 싶으면 버전을 추가하세요.
+        grafana: ["12.0.1"]
+    services:
+      grafana:
+        image: grafana/grafana:${{ matrix.grafana }}
+        ports:
+          - 3000:3000
+        env:
+          GF_SECURITY_ADMIN_USER: admin
+          GF_SECURITY_ADMIN_PASSWORD: admin
+        options: >-
+          --health-cmd "wget -qO- http://localhost:3000/api/health || exit 1"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Grafana 버전 확인
+        run: curl -sf http://localhost:3000/api/health
+
+      - name: API smoke 테스트 (업로드 → 다시 읽어서 비교)
+        run: make smoke
+
+      - name: terraform init / validate
+        run: |
+          terraform -chdir=terraform init -input=false
+          terraform -chdir=terraform validate
+
+      - name: terraform apply
+        run: terraform -chdir=terraform apply -input=false -auto-approve -var-file=envs/local.tfvars
+
+      - name: 재 plan 에서 변경이 없는지 (드리프트 없음 = 코드와 Grafana 상태가 일치)
+        run: terraform -chdir=terraform plan -input=false -detailed-exitcode -var-file=envs/local.tfvars
+
+      - name: Terraform 이 만든 대시보드 확인
+        run: |
+          terraform -chdir=terraform output -json dashboards | jq .
+          for uid in $(jq -r '.uid' dist/*.json); do
+            folder=$(curl -sf -u admin:admin "http://localhost:3000/api/dashboards/uid/$uid" | jq -r '.meta.folderUid')
+            echo "$uid → folder=$folder"
+            test "$folder" = "foundation-sdk"
+          done
