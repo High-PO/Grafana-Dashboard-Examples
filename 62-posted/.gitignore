@@ -1,4 +1,5 @@
 .venv/
 __pycache__/
 *.pyc
-dist/*.draft.txt
+dist/migrated-go.json
+foundation_sdk_go/tmp_convert/

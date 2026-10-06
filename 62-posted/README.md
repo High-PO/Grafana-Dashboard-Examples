@@ -82,8 +82,9 @@ grafanalib  ◀─────────────────────�
 ├── foundation_sdk_python/
 │   └── node_overview.py                  # ② Foundation SDK (Python)
 ├── foundation_sdk_go/
-│   ├── main.go                           # ③ Foundation SDK (Go)
-│   └── cmd/convert/main.go               # JSON → Go 코드 초안 변환기
+│   ├── main.go                           # ③ Foundation SDK (Go) — 정리한 코드
+│   ├── migrated/main.go                  # grafanalib JSON 을 자동 변환한 Go 코드 (+ 수정 2곳)
+│   └── cmd/convert/main.go               # JSON → 실행 가능한 Go 코드 변환기
 ├── tools/
 │   ├── compare.py                        # 대시보드 JSON 비교 (의미 비교 / --exact)
 │   └── normalize_grafanalib.py           # grafanalib JSON 정리 (SDK 변환기 입력용)
@@ -164,7 +165,7 @@ python3 -m venv .venv
 | `build` | 세 구현으로 `dist/*.json` 생성 + grafanalib JSON 정리본 생성 |
 | `compare` | 4가지 비교 실행 (아래) |
 | `check` | `build` + `compare` + `dist/`가 커밋된 내용과 같은지 (CI와 동일) |
-| `convert` | grafanalib JSON → 정리 → Foundation SDK **Go 코드 초안** (`dist/grafanalib-to-go.draft.txt`) |
+| `convert` | grafanalib JSON → 정리 → **실행 가능한 Go 코드** 생성 → 컴파일·실행되는지 확인 |
 | `up` / `down` | 로컬 Grafana 12.0.1 실행 / 종료 |
 | `smoke` | 세 결과물을 UID만 바꿔서 Grafana에 **나란히** 업로드 (`--cleanup` 주면 확인 후 삭제) |
 
@@ -366,7 +367,7 @@ OverrideByRegexp(".* tx$", []dashboard.DynamicConfigValue{{Id: "custom.transform
    - `GridPos(h, w, x, y)` → `.span(w).height(h)`. 행 순서대로 `with_panel()` 하면 좌표는 SDK가 계산합니다.
    - `extraJson`으로 넣던 값은 SDK 빌더 메서드로 바꿉니다 (예: Stat의 `min` / `max`).
    - `.auto_panel_ids()` 대신 빌드 후 ID를 부여합니다 (`foundation_sdk_python/node_overview.py`의 `build()` 마지막 부분).
-   - **팁:** `python tasks.py convert`로 만든 **Go 초안**을 참고하면 편합니다. Python SDK와 Go SDK는 메서드 이름이 `CamelCase` ↔ `snake_case`로 1:1 대응해서, 어떤 메서드를 써야 하는지 바로 보입니다.
+   - **팁:** 7-2의 자동 변환 결과(`foundation_sdk_go/migrated/main.go`)를 참고하면 편합니다. Python SDK와 Go SDK는 메서드 이름이 `CamelCase` ↔ `snake_case`로 1:1 대응해서, 어떤 메서드를 써야 하는지 바로 보입니다.
 3. **검증**
    ```powershell
    python tools/compare.py dist/grafanalib.json dist/fsdk-python.json
@@ -375,28 +376,24 @@ OverrideByRegexp(".* tx$", []dashboard.DynamicConfigValue{{Id: "custom.transform
 
 ### 7-2. grafanalib → Foundation SDK Go (다른 언어)
 
-이 방향은 **자동 변환기를 쓸 수 있습니다.** 다만 grafanalib JSON을 바로 넣으면 실패해서, 정리 단계가 하나 필요합니다.
+이 방향은 **자동 변환기를 쓸 수 있습니다.** grafanalib JSON을 넣으면 **바로 `go run` 되는 Go 코드**가 나옵니다. 단계별 명령과 실제 출력은 [DEMO-WINDOWS.md 8장](DEMO-WINDOWS.md#8-마이그레이션-시연-grafanalib--foundation-sdk-go-코드)에 있습니다.
 
 ```
-grafanalib.json ──normalize──▶ grafanalib.normalized.json ──convert──▶ Go 코드 초안 ──정리──▶ main.go
+grafanalib.json ─정리─▶ normalized.json ─변환─▶ migrated/main.go ─실행─▶ migrated-go.json ─비교─▶ grafanalib.json 과 같은가?
 ```
 
-1. **변환**
-   ```powershell
-   python tasks.py convert
-   # = normalize_grafanalib.py + go run ./cmd/convert
-   # → dist/grafanalib-to-go.draft.txt (약 370줄)
-   ```
-   정리 없이 바로 변환하면 이렇게 실패합니다.
+1. **정리:** grafanalib JSON은 바로 넣으면 실패합니다.
    ```
    json: cannot unmarshal string into Go struct field ... thresholds.steps.value of type float64
    ```
-   grafanalib이 첫 임계값을 `"value": "null"`(**문자열**)로 출력하기 때문입니다. `normalize_grafanalib.py`가 이것을 JSON `null`로 바꾸고, 레거시 필드(`intervalFactor`, `step`, `query`, `rows`, `style` ...)를 지웁니다. 정리 전후 JSON이 같은 대시보드인지는 `compare`가 확인합니다.
-2. **정리:** 초안은 gofmt도 안 된 긴 체인이고 기본값까지 다 들어 있습니다. 그대로 쓰지 말고 `foundation_sdk_go/main.go`처럼 헬퍼(`statPanel`, `timeseriesPanel`)와 상수로 정리합니다. `GridPos`는 지우고 `Span` / `Height`만 남깁니다.
-3. **검증**
-   ```powershell
-   python tools/compare.py dist/grafanalib.json dist/fsdk-go.json
-   ```
+   grafanalib이 첫 임계값을 `"value": "null"`(**문자열**)로 출력하기 때문입니다. `tools/normalize_grafanalib.py`가 이것을 JSON `null`로 바꾸고 레거시 필드를 지웁니다.
+2. **변환:** `go run ./cmd/convert -o migrated/main.go ../dist/grafanalib.normalized.json`
+   SDK의 `DashboardConverter`는 빌더 체인 "식"만 돌려줍니다. `cmd/convert`가 그 식에 `package main`, `import`, `main()`을 붙이고 gofmt를 적용해서 **완전한 프로그램**으로 만듭니다. 빌더로 표현할 수 없는 `schemaVersion`은 원본 값을 이어받습니다.
+3. **실행 → 비교:** `go run ./migrated -o ../dist/migrated-go.json` 후 `compare.py`로 비교하면 **SDK 변환기 버그 2개**가 드러납니다.
+   - override 중복: `Overrides(...)`와 `WithOverride(...)`를 둘 다 출력합니다.
+   - 시간 범위 누락: `Time(...)`을 출력하지 않습니다.
+4. **두 곳 수정 → 다시 비교 → 통과.** 수정한 결과가 [`foundation_sdk_go/migrated/main.go`](foundation_sdk_go/migrated/main.go)(약 440줄)입니다.
+5. **정리 (선택):** 변환 코드에는 기본값이 전부 들어 있어서, 헬퍼와 상수로 정리하면 [`foundation_sdk_go/main.go`](foundation_sdk_go/main.go)(약 230줄)가 됩니다. 정리한 뒤에도 `compare.py`로 검증합니다.
 
 ### 7-3. Foundation SDK → grafanalib (역방향, Python·Go 공통)
 

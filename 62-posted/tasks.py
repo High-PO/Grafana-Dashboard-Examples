@@ -34,7 +34,7 @@ OUT_GRAFANALIB = DIST / "grafanalib.json"
 OUT_NORMALIZED = DIST / "grafanalib.normalized.json"
 OUT_PYTHON = DIST / "fsdk-python.json"
 OUT_GO = DIST / "fsdk-go.json"
-OUT_DRAFT = DIST / "grafanalib-to-go.draft.txt"
+CONVERT_CHECK_DIR = GO_DIR / "tmp_convert"  # convert 확인용 (gitignore)
 
 GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000")
 GRAFANA_AUTH = os.environ.get("GRAFANA_AUTH", "admin:admin")
@@ -136,13 +136,18 @@ def cmd_check(args) -> None:
 
 
 def cmd_convert(_args) -> None:
-    """grafanalib → (정리) → Foundation SDK Go 코드 초안."""
+    """grafanalib → (정리) → Foundation SDK Go 코드로 변환하고, 그 코드가 컴파일·실행되는지 확인합니다.
+
+    커밋된 foundation_sdk_go/migrated/main.go 는 건드리지 않도록 임시 폴더(tmp_convert)에 생성합니다.
+    """
     if not OUT_GRAFANALIB.exists():
         cmd_build(_args)
     run([sys.executable, "-I", str(ROOT / "tools" / "normalize_grafanalib.py"), str(OUT_GRAFANALIB), str(OUT_NORMALIZED)])
-    run(["go", "run", "./cmd/convert", "-o", str(OUT_DRAFT), str(OUT_NORMALIZED)], cwd=GO_DIR)
-    log(f"초안 생성: {OUT_DRAFT.relative_to(ROOT)} ({len(OUT_DRAFT.read_bytes().splitlines())}줄)")
-    print("    Go: 그대로 정리해서 사용 / Python: 메서드 이름만 snake_case 로 바꾸면 거의 1:1 로 대응합니다.")
+    run(["go", "run", "./cmd/convert", "-o", "tmp_convert/main.go", str(OUT_NORMALIZED)], cwd=GO_DIR)
+    out = CONVERT_CHECK_DIR / "out.json"
+    run(["go", "run", "./tmp_convert", "-o", str(out)], cwd=GO_DIR)
+    log("변환된 Go 코드가 실행됨. 원본과 비교 (SDK 변환기 버그로 override 중복 / time 누락 차이가 보이는 게 정상)")
+    compare(str(OUT_GRAFANALIB), str(out))
 
 
 # ---------------------------------------------------------------------------

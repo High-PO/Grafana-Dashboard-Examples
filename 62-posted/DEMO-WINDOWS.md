@@ -209,15 +209,22 @@ python tools\compare.py dist\grafanalib.json dist\fsdk-python.json
 
 ---
 
-## 8. 마이그레이션 시연: grafanalib → Foundation SDK Go (자동 변환)
+## 8. 마이그레이션 시연: grafanalib → Foundation SDK Go 코드
 
-Foundation SDK(Go)에는 **JSON → Go 코드 변환기**가 있습니다. grafanalib이 만든 JSON을 넣어봅니다.
+목표는 **grafanalib으로 만든 대시보드를 실행 가능한 Go 코드로 바꾸는 것**입니다. Foundation SDK(Go)에는 **JSON → Go 코드 변환기**(`DashboardConverter`)가 들어 있어서, grafanalib이 만든 JSON을 넣으면 같은 대시보드를 만드는 Go 코드가 나옵니다.
+
+```
+grafanalib 코드 ─(4단계)─▶ grafanalib.json ─(8-2 정리)─▶ normalized.json ─(8-3 변환)─▶ migrated\main.go ─(8-4 실행)─▶ migrated-go.json
+                                                                                                         │
+                                                         8-5 비교: grafanalib.json 과 같은 대시보드인가? ◀───┘
+```
 
 ### 8-1. 그냥 넣으면? → 실패
 
 ```powershell
 cd foundation_sdk_go
 go run ./cmd/convert ..\dist\grafanalib.json
+cd ..
 ```
 ```
 error: json: cannot unmarshal string into Go struct field Dashboard.panels.defaults.thresholds.steps.value of type float64
@@ -226,23 +233,95 @@ exit status 1
 
 > 🎤 4단계에서 본 `"value": "null"`(문자열) 때문입니다.
 
-### 8-2. 정리하고 다시 넣으면? → 성공
+### 8-2. JSON 정리
 
 ```powershell
-cd ..
 python tools\normalize_grafanalib.py dist\grafanalib.json dist\grafanalib.normalized.json
-
-# 정리해도 같은 대시보드인지 확인
 python tools\compare.py dist\grafanalib.json dist\grafanalib.normalized.json
-
-cd foundation_sdk_go
-go run ./cmd/convert -o ..\dist\grafanalib-to-go.draft.txt ..\dist\grafanalib.normalized.json
-cd ..
-notepad dist\grafanalib-to-go.draft.txt   # 또는 Kiro 파일 탐색기에서 열기
+```
+```
+OK: 의미 있는 필드가 모두 같습니다.
 ```
 
-> 🎤 약 370줄짜리 Go 코드 초안이 나옵니다. 기본값까지 다 들어 있어서 그대로 쓰기는 어렵고, 이걸 보면서 정리한 결과가 `foundation_sdk_go\main.go`(227줄)입니다.
-> Python SDK에는 이런 변환기가 없습니다. 하지만 메서드 이름이 `WithTarget` ↔ `with_target`처럼 1:1 대응해서, **Go 초안을 보고 Python으로 옮기면** 됩니다.
+> 🎤 문자열 `"null"`을 진짜 `null`로 바꾸고, 레거시 필드(`query`, `step`, `intervalFactor` ...)를 지웁니다. 지운 게 불안하니 바로 비교해서 "같은 대시보드"인 걸 확인하고 넘어갑니다.
+
+### 8-3. Go 코드로 변환
+
+```powershell
+cd foundation_sdk_go
+go run ./cmd/convert -o migrated\main.go ..\dist\grafanalib.normalized.json
+```
+```
+generated migrated\main.go (439줄)
+```
+
+Kiro에서 `foundation_sdk_go\migrated\main.go`를 열어 보여줍니다.
+
+```go
+func dashboardBuilder() *dashboard.DashboardBuilder {
+	return dashboard.NewDashboardBuilder("Node Overview").
+		Uid("node-overview").
+		...
+		WithPanel(stat.NewPanelBuilder().
+			Title("CPU 사용률").
+			...
+```
+
+> 🎤 `package main`, `import`, `main()`까지 들어 있는 **완전한 Go 프로그램**입니다. SDK 변환기는 빌더 체인 "식"만 돌려주기 때문에, `cmd/convert`가 그 식을 감싸서 import를 붙이고 gofmt까지 적용합니다.
+
+### 8-4. 변환된 Go 코드 실행
+
+```powershell
+go run ./migrated -o ..\dist\migrated-go.json
+cd ..
+```
+```
+generated ..\dist\migrated-go.json
+```
+
+### 8-5. 원본과 비교 → 변환기 버그 2개 발견
+
+```powershell
+python tools\compare.py dist\grafanalib.json dist\migrated-go.json
+```
+```
+2개 차이 발견 (- dist\grafanalib.json / + dist\migrated-go.json):
+  panels.[timeseries] Network 송수신.overrides
+    - [{"matcher": {"id": "byRegexp", "options": ".* tx$"}, ...}]
+    + [{"matcher": {"id": "byRegexp", "options": ".* tx$"}, ...}, {"matcher": {"id": "byRegexp", "options": ".* tx$"}, ...}]
+  time
+    - {"from": "now-3h", "to": "now"}
+    + (없음)
+```
+
+> 🎤 **공식 변환기도 완벽하지 않습니다.** override를 두 번 넣고(`Overrides(...)`와 `WithOverride(...)`를 둘 다 출력), 시간 범위(`Time`)는 빠뜨립니다. 비교 도구가 없었다면 그냥 넘어갔을 차이입니다.
+
+### 8-6. 두 곳 고치고 다시 비교 → 통과
+
+`foundation_sdk_go\migrated\main.go`를 고칩니다.
+
+1. **중복 override 삭제:** `WithOverride(dashboard.MatcherConfig{Id: "byRegexp", ...` 로 시작하는 **한 줄을 삭제**합니다 (Ctrl+F로 `WithOverride` 검색).
+2. **시간 범위 추가:** `Refresh("30s").` 바로 아래에 한 줄을 추가합니다.
+   ```go
+   		Refresh("30s").
+   		Time("now-3h", "now").
+   ```
+
+```powershell
+cd foundation_sdk_go
+go run ./migrated -o ..\dist\migrated-go.json
+cd ..
+python tools\compare.py dist\grafanalib.json dist\migrated-go.json
+```
+```
+OK: 의미 있는 필드가 모두 같습니다.  (dist\grafanalib.json == dist\migrated-go.json)
+```
+
+> 🎤 **grafanalib → Go 마이그레이션 완료.** 같은 대시보드를 만드는 Go 코드가 생겼습니다.
+> 다만 변환 결과(약 440줄)에는 기본값과 레거시 값이 전부 들어 있어서 읽기 어렵습니다. 헬퍼 함수와 상수로 정리하면 `foundation_sdk_go\main.go`(약 230줄)가 되고, 정리한 뒤에도 같은 방법(`compare.py`)으로 검증합니다.
+> Python SDK에는 이런 변환기가 없습니다. 하지만 메서드 이름이 `WithTarget` ↔ `with_target`처럼 1:1 대응해서, **변환된 Go 코드를 보고 Python으로 옮기면** 됩니다.
+
+> 레포에는 8-6까지 고친 `migrated\main.go`가 이미 들어 있습니다. 시연에서 8-3을 실행하면 고치기 전 상태로 덮어써지고, 시연이 끝난 뒤 `git checkout foundation_sdk_go/migrated`로 되돌릴 수 있습니다.
 
 ---
 
