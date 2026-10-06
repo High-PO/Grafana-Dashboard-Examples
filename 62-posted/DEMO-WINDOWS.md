@@ -17,6 +17,22 @@ winget install Docker.DockerDesktop      # 9단계(Grafana)에서만 필요
 winget install Git.Git
 ```
 
+`winget`을 찾을 수 없다고 나오면 (App Installer가 없는 PC) 아래 둘 중 하나로 하세요.
+
+- **winget 살리기:** Microsoft Store에서 **"앱 설치 관리자(App Installer)"**를 설치하거나 업데이트합니다. 또는 PowerShell에서 아래를 실행합니다.
+  ```powershell
+  Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
+  ```
+- **설치 파일 직접 받기:**
+
+  | 도구 | 다운로드 | 설치할 때 |
+  | --- | --- | --- |
+  | PowerShell 7 | https://aka.ms/powershell-release?tag=stable (`...win-x64.msi`) | 기본값 |
+  | Python 3.12 | https://www.python.org/downloads/windows/ | **"Add python.exe to PATH"**, **"py launcher"** 체크 |
+  | Go | https://go.dev/dl/ (`...windows-amd64.msi`) | 기본값 |
+  | Git | https://git-scm.com/download/win | 기본값 |
+  | Docker Desktop | https://www.docker.com/products/docker-desktop/ | WSL 2 사용, 설치 후 재부팅 |
+
 설치 후 **터미널을 새로 열고** 확인합니다.
 
 ```powershell
@@ -45,7 +61,10 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 2. 레포 받기
 
+`C:\WINDOWS\system32`(관리자 터미널의 기본 위치)에서 받지 말고, 내 폴더로 옮긴 뒤 받습니다.
+
 ```powershell
+cd $HOME\Documents
 git clone https://github.com/High-PO/Grafana-Dashboard-Examples.git
 cd Grafana-Dashboard-Examples\62-posted
 ```
