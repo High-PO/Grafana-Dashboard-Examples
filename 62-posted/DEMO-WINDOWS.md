@@ -23,6 +23,10 @@ winget install Git.Git
   ```powershell
   Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
   ```
+- **Chocolatey가 있다면:** **관리자** PowerShell에서 실행합니다.
+  ```powershell
+  choco install -y powershell-core python312 golang git docker-desktop
+  ```
 - **설치 파일 직접 받기:**
 
   | 도구 | 다운로드 | 설치할 때 |
