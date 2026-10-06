@@ -6,7 +6,7 @@ on:
       - "62-posted/**"
       - ".github/workflows/62-posted.yml"
   push:
-    branches: [main]
+    branches: [main, "feat/**"]
     paths:
       - "62-posted/**"
       - ".github/workflows/62-posted.yml"
