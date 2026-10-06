@@ -140,9 +140,8 @@ def cmd_convert(_args) -> None:
     if not OUT_GRAFANALIB.exists():
         cmd_build(_args)
     run([sys.executable, "-I", str(ROOT / "tools" / "normalize_grafanalib.py"), str(OUT_GRAFANALIB), str(OUT_NORMALIZED)])
-    draft = run(["go", "run", "./cmd/convert", str(OUT_NORMALIZED)], cwd=GO_DIR, capture=True)
-    OUT_DRAFT.write_bytes(draft)
-    log(f"초안 생성: {OUT_DRAFT.relative_to(ROOT)} ({len(draft.splitlines())}줄)")
+    run(["go", "run", "./cmd/convert", "-o", str(OUT_DRAFT), str(OUT_NORMALIZED)], cwd=GO_DIR)
+    log(f"초안 생성: {OUT_DRAFT.relative_to(ROOT)} ({len(OUT_DRAFT.read_bytes().splitlines())}줄)")
     print("    Go: 그대로 정리해서 사용 / Python: 메서드 이름만 snake_case 로 바꾸면 거의 1:1 로 대응합니다.")
 
 

@@ -3,13 +3,16 @@
 // Python 버전(../foundation_sdk_python/node_overview.py)과 1:1 로 대응합니다.
 // 같은 SDK 라서 빌더 이름만 CamelCase ↔ snake_case 로 바뀌고, 생성되는 JSON 은 완전히 같습니다.
 //
-//	go run . > ../dist/fsdk-go.json
+//	go run . -o ../dist/fsdk-go.json   // 파일로 저장 (UTF-8)
+//	go run .                           // 화면에 출력
 //
 // 명세는 ../SPEC.md 를 참고하세요.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 
@@ -211,17 +214,51 @@ func build() (dashboard.Dashboard, error) {
 }
 
 func main() {
+	output := flag.String("o", "", "저장할 파일 경로. 없으면 화면에 출력합니다.")
+	flag.Parse()
+
 	dash, err := build()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(dash); err != nil {
+	out, err := marshalSorted(dash)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
+
+	if *output == "" {
+		os.Stdout.Write(out)
+		return
+	}
+	// Windows PowerShell 의 > 리다이렉트는 인코딩 문제(UTF-16, 한글 깨짐)가 있어서 파일로 직접 씁니다.
+	if err := os.WriteFile(*output, out, 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+	fmt.Println("generated", *output)
+}
+
+// marshalSorted 는 키를 알파벳 순으로 정렬한 JSON 을 만듭니다.
+// Python 버전(json.dumps(sort_keys=True))과 같은 모양이 되어서, 두 파일을 그대로 diff 할 수 있습니다.
+func marshalSorted(v any) ([]byte, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var generic any // map 으로 다시 읽으면 encoding/json 이 키를 정렬해서 출력합니다.
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(generic); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

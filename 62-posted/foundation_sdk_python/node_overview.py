@@ -3,11 +3,13 @@
 grafanalib 버전(../grafanalib/node_overview.dashboard.py)과 같은 대시보드를
 Foundation SDK 로 옮긴 코드입니다. Go 버전(../foundation_sdk_go/main.go)과 1:1 로 대응합니다.
 
-    python node_overview.py > ../dist/fsdk-python.json
+    python node_overview.py -o ../dist/fsdk-python.json   # 파일로 저장 (UTF-8)
+    python node_overview.py                               # 화면에 출력
 
 명세는 ../SPEC.md 를 참고하세요.
 """
 
+import argparse
 import json
 import sys
 
@@ -242,5 +244,16 @@ def to_json(dash: dashboard_model.Dashboard) -> str:
 
 
 if __name__ == "__main__":
-    sys.stdout.reconfigure(encoding="utf-8")
-    print(to_json(build()))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-o", "--output", help="저장할 파일 경로. 없으면 화면에 출력합니다.")
+    args = parser.parse_args()
+
+    output = to_json(build()) + "\n"
+    if args.output:
+        # Windows PowerShell 의 > 리다이렉트는 인코딩 문제(UTF-16, 한글 깨짐)가 있어서 파일로 직접 씁니다.
+        with open(args.output, "w", encoding="utf-8", newline="\n") as f:
+            f.write(output)
+        print(f"generated {args.output}")
+    else:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stdout.write(output)

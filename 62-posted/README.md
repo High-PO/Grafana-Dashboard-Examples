@@ -74,6 +74,7 @@ grafanalib  ◀─────────────────────�
 ```
 62-posted/
 ├── SPEC.md                               # 대시보드 명세 (세 구현의 기준)
+├── DEMO-WINDOWS.md                       # Windows 시연 가이드 (단계별 직접 실행)
 ├── tasks.py                              # 모든 작업의 진입점 (Windows / macOS / Linux 공통)
 ├── requirements.txt                      # grafanalib==0.7.1, grafana-foundation-sdk==0.0.20
 ├── grafanalib/
@@ -153,6 +154,8 @@ python3 -m venv .venv
 ---
 
 ## 5. 실행
+
+> **발표 시연처럼 도구를 하나씩 직접 실행하려면 [DEMO-WINDOWS.md](DEMO-WINDOWS.md)를 보세요.** (Windows PowerShell 단계별 명령 + 단계별 예상 출력 + 시연 포인트)
 
 모든 작업은 `tasks.py` 하나로 합니다. Kiro의 **Tasks: Run Task** 메뉴에도 같은 이름으로 등록돼 있어요.
 
