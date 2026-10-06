@@ -1,0 +1,6 @@
+{
+  "python.terminal.activateEnvironment": true,
+  "files.encoding": "utf8",
+  "[python]": { "editor.rulers": [120] },
+  "go.toolsManagement.autoUpdate": false
+}

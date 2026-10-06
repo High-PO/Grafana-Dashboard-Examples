@@ -1,0 +1,75 @@
+{
+  // Kiro / VS Code: Ctrl+Shift+P → "Tasks: Run Task" 에서 실행합니다.
+  // 가상환경(.venv)의 Python 을 직접 호출하므로 activate 하지 않아도 됩니다.
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}"
+  },
+  "windows": {
+    "options": {
+      "env": { "PYTHONUTF8": "1" }
+    }
+  },
+  "tasks": [
+    {
+      "label": "62: setup (가상환경 + 패키지 설치)",
+      "type": "shell",
+      "command": "python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt && cd foundation_sdk_go && go mod download",
+      "windows": {
+        "command": "py -3 -m venv .venv; .venv\\Scripts\\python.exe -m pip install -r requirements.txt; cd foundation_sdk_go; go mod download"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "62: build",
+      "type": "shell",
+      "command": ".venv/bin/python tasks.py build",
+      "windows": { "command": ".venv\\Scripts\\python.exe tasks.py build" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "62: compare",
+      "type": "shell",
+      "command": ".venv/bin/python tasks.py compare",
+      "windows": { "command": ".venv\\Scripts\\python.exe tasks.py compare" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "62: check (build + compare + dist 최신 여부)",
+      "type": "shell",
+      "command": ".venv/bin/python tasks.py check",
+      "windows": { "command": ".venv\\Scripts\\python.exe tasks.py check" },
+      "problemMatcher": []
+    },
+    {
+      "label": "62: convert (grafanalib → Go 초안)",
+      "type": "shell",
+      "command": ".venv/bin/python tasks.py convert",
+      "windows": { "command": ".venv\\Scripts\\python.exe tasks.py convert" },
+      "problemMatcher": []
+    },
+    {
+      "label": "62: grafana up",
+      "type": "shell",
+      "command": ".venv/bin/python tasks.py up",
+      "windows": { "command": ".venv\\Scripts\\python.exe tasks.py up" },
+      "problemMatcher": []
+    },
+    {
+      "label": "62: grafana smoke (세 결과물 나란히 업로드)",
+      "type": "shell",
+      "command": ".venv/bin/python tasks.py smoke",
+      "windows": { "command": ".venv\\Scripts\\python.exe tasks.py smoke" },
+      "problemMatcher": []
+    },
+    {
+      "label": "62: grafana down",
+      "type": "shell",
+      "command": ".venv/bin/python tasks.py down",
+      "windows": { "command": ".venv\\Scripts\\python.exe tasks.py down" },
+      "problemMatcher": []
+    }
+  ]
+}

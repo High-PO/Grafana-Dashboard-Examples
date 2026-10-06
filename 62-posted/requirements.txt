@@ -1,0 +1,7 @@
+# 두 라이브러리를 한 가상환경에 같이 설치해도 충돌하지 않습니다.
+#
+# ⚠️ grafana-foundation-sdk 는 반드시 버전을 고정하세요.
+# PyPI 에 epoch 가 붙은 옛 빌드(예: 1769699998!10.1.0)가 있어서
+# `pip install grafana-foundation-sdk` 만 하면 0.0.20 이 아니라 Grafana 10.1 용 빌드가 설치됩니다.
+grafanalib==0.7.1
+grafana-foundation-sdk==0.0.20

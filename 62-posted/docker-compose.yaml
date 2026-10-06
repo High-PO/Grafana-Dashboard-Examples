@@ -1,0 +1,28 @@
+# 로컬 검증용 Grafana (홈랩과 같은 12.0.1).
+#
+#   python tasks.py up      → http://localhost:3000 (admin / admin)
+#   python tasks.py smoke   → 세 결과물을 나란히 올려서 비교
+#
+# 홈랩 Prometheus / Loki 를 port-forward 해두면 실제 데이터로 볼 수 있습니다.
+#   kubectl -n monitoring port-forward svc/<prometheus> 9090:9090
+#   kubectl -n monitoring port-forward svc/<loki>       3100:3100
+services:
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-12.0.1}
+    container_name: sdk-compare-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://host.docker.internal:9090}
+      LOKI_URL: ${LOKI_URL:-http://host.docker.internal:3100}
+    volumes:
+      - ./local/provisioning:/etc/grafana/provisioning:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
