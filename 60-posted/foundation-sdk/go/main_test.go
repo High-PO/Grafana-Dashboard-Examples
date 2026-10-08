@@ -18,6 +18,9 @@ import (
 //
 // go test ./... 로 실행합니다. (make lint 에 포함)
 
+// promql 은 기본 옵션의 PromQL 파서입니다.
+var promql = parser.NewParser(parser.Options{})
+
 // grafanaVars 는 PromQL 파싱 전에 Grafana 변수를 그럴듯한 값으로 치환하기 위한 목록입니다.
 // 대시보드에 새 변수를 추가했다면 여기에도 추가하세요. (치환 안 된 $변수가 남으면 테스트가 실패합니다)
 var grafanaVars = strings.NewReplacer(
@@ -140,7 +143,7 @@ func checkTargets(t *testing.T, p panel) {
 			t.Errorf("%q/%s: 치환되지 않은 Grafana 변수가 있습니다 (grafanaVars 에 추가하세요): %s", p.Title, target.RefID, expr)
 			continue
 		}
-		if _, err := parser.ParseExpr(expr); err != nil {
+		if _, err := promql.ParseExpr(expr); err != nil {
 			t.Errorf("%q/%s: PromQL 파싱 실패: %v\n%s", p.Title, target.RefID, err, target.Expr)
 		}
 	}

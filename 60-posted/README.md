@@ -106,7 +106,7 @@ Go 코드 (foundation-sdk/go)  ──make build──▶  dist/*.json  ──ter
 
 | 도구 | 버전 | 용도 |
 | --- | --- | --- |
-| Go | 1.24 이상 | 대시보드 생성 / 테스트 |
+| Go | 1.25 이상 | 대시보드 생성 / 테스트 |
 | Terraform | 1.5 이상 (CI는 1.9.8) | 배포 |
 | Docker (+ compose) | - | 로컬 Grafana |
 | make, jq, curl | - | Makefile, 스모크 테스트 |
